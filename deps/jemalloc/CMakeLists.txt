@@ -1,32 +1,107 @@
 project(jemalloc)
+include(CheckCSourceCompiles)
 
-# Build jemalloc using configure && make install
-set(JEMALLOC_INSTALL_DIR ${CMAKE_BINARY_DIR}/jemalloc-build)
-set(JEMALLOC_SRC_DIR ${CMAKE_CURRENT_LIST_DIR})
-if (NOT EXISTS ${JEMALLOC_INSTALL_DIR}/lib/libjemalloc.a)
-    message(STATUS "Building jemalloc (custom build)")
-    message(STATUS "JEMALLOC_SRC_DIR = ${JEMALLOC_SRC_DIR}")
-    message(STATUS "JEMALLOC_INSTALL_DIR = ${JEMALLOC_INSTALL_DIR}")
+# Helper method: check if `CODE_TO_CHECK` can be compiled
+function (check_compilable LABEL INCL_STMNT CODE_TO_CHECK OUT_VARIABLE)
+    set(SRC
+        "${INCL_STMNT}
+  int main(int argc, char* argv[]) {
+    ${CODE_TO_CHECK}
+    return 0;
+  }")
 
-    execute_process(
-        COMMAND sh -c "${JEMALLOC_SRC_DIR}/configure --disable-cxx \
-            --with-version=5.3.0-0-g0 --with-lg-quantum=3 --disable-cache-oblivious --with-jemalloc-prefix=je_ \
-            --enable-static --disable-shared --prefix=${JEMALLOC_INSTALL_DIR}"
-        WORKING_DIRECTORY ${JEMALLOC_SRC_DIR} RESULTS_VARIABLE CONFIGURE_RESULT)
-
-    if (NOT ${CONFIGURE_RESULT} EQUAL 0)
-        message(FATAL_ERROR "Jemalloc configure failed")
+    check_c_source_compiles("${SRC}" __COMPILE_STATUS)
+    if (__COMPILE_STATUS)
+        set(${OUT_VARIABLE}
+            1
+            PARENT_SCOPE)
+        message(STATUS "Check ${LABEL} is compilable...yes")
+    else ()
+        set(${OUT_VARIABLE}
+            0
+            PARENT_SCOPE)
+        message(STATUS "Check ${LABEL} is compilable...no")
     endif ()
+    unset(__COMPILE_STATUS CACHE)
+endfunction (check_compilable)
 
-    execute_process(COMMAND make -j${VALKEY_PROCESSOR_COUNT} lib/libjemalloc.a install
-                    WORKING_DIRECTORY "${JEMALLOC_SRC_DIR}" RESULTS_VARIABLE MAKE_RESULT)
+set(JEMALLOC_SRCS
+    ${CMAKE_CURRENT_LIST_DIR}/src/jemalloc.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/arena.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/background_thread.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/base.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/bin.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/bin_info.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/bitmap.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/buf_writer.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/cache_bin.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/ckh.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/counter.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/ctl.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/decay.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/div.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/ecache.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/edata.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/edata_cache.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/ehooks.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/emap.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/eset.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/exp_grow.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/extent.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/extent_dss.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/extent_mmap.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/fxp.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/san.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/san_bump.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/hook.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/hpa.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/hpa_hooks.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/hpdata.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/inspect.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/large.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/log.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/malloc_io.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/mutex.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/nstime.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/pa.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/pa_extra.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/pai.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/pac.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/pages.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/peak_event.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/prof.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/prof_data.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/prof_log.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/prof_recent.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/prof_stats.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/prof_sys.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/psset.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/rtree.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/safety_check.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/sc.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/sec.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/stats.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/sz.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/tcache.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/test_hooks.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/thread_event.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/ticker.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/tsd.c
+    ${CMAKE_CURRENT_LIST_DIR}/src/witness.c)
 
-    if (NOT ${MAKE_RESULT} EQUAL 0)
-        message(FATAL_ERROR "Jemalloc build failed")
-    endif ()
-endif ()
+# Configure jemalloc_preamble.h
+set(install_suffix "")
+set(private_namespace "je_")
+configure_file(${CMAKE_CURRENT_LIST_DIR}/include/jemalloc/internal/jemalloc_preamble.h.in
+               ${CMAKE_CURRENT_LIST_DIR}/include/jemalloc/internal/jemalloc_preamble.h)
 
-# Import the compiled library as a CMake target
-add_library(jemalloc STATIC IMPORTED GLOBAL)
-set_target_properties(jemalloc PROPERTIES IMPORTED_LOCATION "${JEMALLOC_INSTALL_DIR}/lib/libjemalloc.a"
-                                          INCLUDE_DIRECTORIES "${JEMALLOC_INSTALL_DIR}/include")
+# Configure jemalloc_internal_defs.h
+check_compilable("pause instruction" "" "__asm__ volatile(\"pause\");" HAS_CPU_SPINWAIT)
+
+add_library(jemalloc STATIC ${JEMALLOC_SRCS})
+target_compile_definitions(jemalloc PRIVATE _GNU_SOURCE)
+target_compile_definitions(jemalloc PRIVATE _REENTRANT)
+target_compile_definitions(jemalloc PRIVATE JEMALLOC_NO_PRIVATE_NAMESPACE)
+target_include_directories(jemalloc PUBLIC "${CMAKE_CURRENT_LIST_DIR}/include")
+
+unset(HAS_CPU_SPINWAIT CACHE)
