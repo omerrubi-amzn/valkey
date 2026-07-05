@@ -218,6 +218,15 @@ else ()
     set(USE_RDMA 0)
 endif ()
 
+# OpenTelemetry (OTLP/HTTP) metrics exporter. Enable with -DBUILD_OTEL=yes.
+# Requires no extra libraries (libc, pthread, POSIX sockets only).
+if (BUILD_OTEL)
+    message(STATUS "OpenTelemetry metrics exporter is enabled")
+    add_valkey_server_compiler_options("-DUSE_OTEL")
+else ()
+    message(STATUS "OpenTelemetry metrics exporter is disabled")
+endif ()
+
 set(BUILDING_ARM64 0)
 set(BUILDING_ARM32 0)
 

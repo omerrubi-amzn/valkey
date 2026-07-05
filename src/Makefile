@@ -340,6 +340,12 @@ ifeq ($(USE_LTTNG),yes)
 	FINAL_LIBS += -llttng-ust
 endif
 
+# OpenTelemetry (OTLP/HTTP) metrics exporter. Uses only libc, pthread and POSIX
+# sockets (already linked), so no extra libraries are required.
+ifeq ($(USE_OTEL),yes)
+	FINAL_CFLAGS+=-DUSE_OTEL
+endif
+
 # LIBSSL & LIBCRYPTO
 LIBSSL_LIBS=
 LIBSSL_PKGCONFIG := $(shell $(PKG_CONFIG) --exists libssl && echo $$?)
@@ -584,6 +590,10 @@ ENGINE_SERVER_OBJ = \
     zmalloc.o \
     queues.o
 ENGINE_SERVER_OBJ+=$(ENGINE_TRACE_OBJ)
+ENGINE_OTEL_OBJ = \
+    otel/otel_emitter.o \
+    otel/otel.o
+ENGINE_SERVER_OBJ+=$(ENGINE_OTEL_OBJ)
 ENGINE_CLI_NAME=$(ENGINE_NAME)-cli$(PROG_SUFFIX)
 ENGINE_CLI_OBJ = \
     adlist.o \
@@ -760,6 +770,9 @@ DEP = $(ENGINE_SERVER_OBJ:%.o=%.d) $(ENGINE_CLI_OBJ:%.o=%.d) $(ENGINE_BENCHMARK_
 trace/%.o: trace/%.c .make-prerequisites
 	$(SERVER_CC) -Itrace -MMD -o $@ -c $<
 
+otel/%.o: otel/%.c .make-prerequisites
+	$(SERVER_CC) -Iotel -MMD -o $@ -c $<
+
 # The following files are checked in and don't normally need to be rebuilt. They
 # are built only if python is available and their prereqs are modified.
 ifneq (,$(PYTHON))
@@ -775,7 +788,7 @@ endif
 commands.c: $(COMMANDS_DEF_FILENAME).def
 
 clean:
-	rm -rf $(SERVER_NAME) $(ENGINE_SENTINEL_NAME) $(ENGINE_CLI_NAME) $(ENGINE_BENCHMARK_NAME) $(ENGINE_CHECK_RDB_NAME) $(ENGINE_CHECK_AOF_NAME) $(ENGINE_UNIT_GTESTS) $(ENGINE_LIB_NAME) trace/*.o trace/*.d *.o *.gcda *.gcno *.gcov valkey.info lcov-html Makefile.dep *.so
+	rm -rf $(SERVER_NAME) $(ENGINE_SENTINEL_NAME) $(ENGINE_CLI_NAME) $(ENGINE_BENCHMARK_NAME) $(ENGINE_CHECK_RDB_NAME) $(ENGINE_CHECK_AOF_NAME) $(ENGINE_UNIT_GTESTS) $(ENGINE_LIB_NAME) trace/*.o trace/*.d otel/*.o otel/*.d *.o *.gcda *.gcno *.gcov valkey.info lcov-html Makefile.dep *.so
 	rm -f $(DEP)
 	-(cd modules/lua && $(MAKE) clean)
 

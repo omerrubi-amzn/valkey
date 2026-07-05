@@ -39,6 +39,7 @@
 #include "cluster_migrateslots.h"
 #include "commandlog.h"
 #include "bio.h"
+#include "otel/otel.h"
 #include "latency.h"
 #include "info_emitter.h"
 #include "mt19937-64.h"
@@ -1570,6 +1571,10 @@ long long serverCron(struct aeEventLoop *eventLoop, long long id, void *clientDa
     }
 
     cronUpdateMemoryStats();
+
+    /* Sample + hand off metrics to the OpenTelemetry exporter thread. No-op
+     * unless built with USE_OTEL and otel-enabled; off the command hot path. */
+    run_with_period(1000) otelCron();
 
     /* We received a SIGTERM or SIGINT, shutting down here in a safe way, as it is
      * not ok doing so inside the signal handler. */
@@ -3221,6 +3226,7 @@ void initListeners(void) {
  * see: https://sourceware.org/bugzilla/show_bug.cgi?id=19329 */
 void InitServerLast(void) {
     bioInit();
+    otelInit();
     initIOThreads(1);
     set_jemalloc_bg_thread(server.jemalloc_bg_thread);
 
@@ -4999,6 +5005,9 @@ int finishShutdown(void) {
     closeListeningSockets(1);
 
     moduleUnloadAllModules();
+
+    /* Stop the OpenTelemetry exporter thread (no-op unless built with USE_OTEL). */
+    otelCleanup();
 
     serverLog(LL_WARNING, "%s is now ready to exit, bye bye...", server.sentinel_mode ? "Sentinel" : "Valkey");
     return C_OK;

@@ -3530,6 +3530,14 @@ standardConfig static_configs[] = {
     createSpecialConfig("replicaof", "slaveof", IMMUTABLE_CONFIG | MULTI_ARG_CONFIG, setConfigReplicaOfOption, getConfigReplicaOfOption, rewriteConfigReplicaOfOption, NULL),
     createSpecialConfig("latency-tracking-info-percentiles", NULL, MODIFIABLE_CONFIG | MULTI_ARG_CONFIG, setConfigLatencyTrackingInfoPercentilesOutputOption, getConfigLatencyTrackingInfoPercentilesOutputOption, rewriteConfigLatencyTrackingInfoPercentilesOutputOption, NULL),
 
+#ifdef USE_OTEL
+    /* OpenTelemetry (OTLP/HTTP) metrics exporter. See src/otel/. */
+    createBoolConfig("otel-enabled", NULL, MODIFIABLE_CONFIG, server.otel_enabled, 0, NULL, NULL),
+    createStringConfig("otel-endpoint", NULL, MODIFIABLE_CONFIG, EMPTY_STRING_IS_NULL, server.otel_endpoint, "127.0.0.1:4318", NULL, NULL),
+    createStringConfig("otel-service-name", NULL, MODIFIABLE_CONFIG, EMPTY_STRING_IS_NULL, server.otel_service_name, "valkey", NULL, NULL),
+    createIntConfig("otel-push-interval-ms", NULL, MODIFIABLE_CONFIG, 100, INT_MAX, server.otel_push_interval_ms, 15000, INTEGER_CONFIG, NULL, NULL),
+#endif
+
     /* NULL Terminator, this is dropped when we convert to the runtime array. */
     {NULL},
 };

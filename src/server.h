@@ -1982,11 +1982,18 @@ struct valkeyServer {
     int config_databases;                        /* Total number of configured DBs in standalone */
     int config_databases_cluster;                /* Total number of configured DBs in cluster mode */
     int dbnum;                                   /* Total number of initialized DBs */
-    int supervised;                              /* 1 if supervised, 0 otherwise. */
-    int supervised_mode;                         /* See SUPERVISED_* */
-    int daemonize;                               /* True if running as a daemon */
-    int set_proc_title;                          /* True if change proc title */
-    char *proc_title_template;                   /* Process title template format */
+#ifdef USE_OTEL
+    /* OpenTelemetry (OTLP/HTTP) metrics exporter. See src/otel/. */
+    int otel_enabled;          /* Enable OTLP metrics export. */
+    char *otel_endpoint;       /* Collector endpoint, e.g. "127.0.0.1:4318". */
+    char *otel_service_name;   /* Resource attribute service.name. */
+    int otel_push_interval_ms; /* Export interval in milliseconds. */
+#endif
+    int supervised;            /* 1 if supervised, 0 otherwise. */
+    int supervised_mode;       /* See SUPERVISED_* */
+    int daemonize;             /* True if running as a daemon */
+    int set_proc_title;        /* True if change proc title */
+    char *proc_title_template; /* Process title template format */
     clientBufferLimitsConfig client_obuf_limits[CLIENT_TYPE_OBUF_COUNT];
     int extended_redis_compat;                 /* True if extended Redis OSS compatibility is enabled */
     int pause_cron;                            /* Don't run cron tasks (debug) */
